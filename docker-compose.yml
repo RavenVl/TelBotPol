@@ -1,0 +1,15 @@
+services:
+  bot:
+    build: .
+    container_name: telega_bot
+    restart: unless-stopped
+    environment:
+      - TOKEN=7984957020:AAHEEFfraZvfKDHJWrgJRx-9y98aEzRQfck  # Замените на ваш токен
+    volumes:
+      - .:/app
+    networks:
+      - bot_network
+
+networks:
+  bot_network:
+    driver: bridge
