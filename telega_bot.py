@@ -9,6 +9,11 @@ import asyncio
 import nest_asyncio
 import dorm
 from asgiref.sync import sync_to_async
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
+
 
 dorm.setup()
 from game.models import ElemetsGame, BotState
@@ -125,7 +130,7 @@ async def game_step(update: Update, context: CallbackContext):
 
     current_step = await get_bot_state(user_id)
     game = await sync_to_async(ElemetsGame.objects.filter(name=current_step).first)()
-    print(current_step)
+
     if game.true_rez == 100:
         await update_bot_state(user_id, '1')
     await frame(update, context, game)
@@ -150,8 +155,8 @@ async def echo(update: Update, context: CallbackContext):
 
 async def main():
     try:
-        Token = "7984957020:AAHEEFfraZvfKDHJWrgJRx-9y98aEzRQfck"
-        application = Application.builder().token(Token).build()
+        Token_ = os.getenv("TOKEN")
+        application = Application.builder().token(Token_).build()
 
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help))
