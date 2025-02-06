@@ -4,7 +4,7 @@ services:
     container_name: telega_bot
     restart: unless-stopped
     environment:
-      - TOKEN=7984957020:AAHEEFfraZvfKDHJWrgJRx-9y98aEzRQfck  # Замените на ваш токен
+      - TOKEN=7984957020:AAHEEFfraZvfKDHJWrgJRx-9y98aEzRQfc1  # Замените на ваш токен
     volumes:
       - .:/app
     networks:

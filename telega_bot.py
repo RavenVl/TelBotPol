@@ -11,7 +11,8 @@ import dorm
 from asgiref.sync import sync_to_async
 
 dorm.setup()
-from game.models import ElemetsGame
+from game.models import ElemetsGame, BotState
+ # Import our new model
 
 nest_asyncio.apply()
 
@@ -27,34 +28,45 @@ HELP_TEXT = '''Описание игры:\nЭто описание игры \n\n
 
 from typing import Dict
 
-# Add after the logger initialization
-user_game_step: Dict[int, str] = {}  # user_id -> step_number
+# Remove the global dictionary for storing state per user
+# user_game_step: Dict[int, str] = {}  # user_id -> step_number
+
+# Helper functions to get and update bot state in the database
+async def get_bot_state(user_id: int) -> str:
+    bot_state = await sync_to_async(BotState.objects.filter(user_id=user_id).first)()
+    if not bot_state:
+        bot_state = await sync_to_async(BotState.objects.create)(user_id=user_id, state='1')
+    return bot_state.state
+
+async def update_bot_state(user_id: int, state: str) -> None:
+    await sync_to_async(BotState.objects.update_or_create)(user_id=user_id, defaults={'state': state})
+
 
 async def button_callback(update: Update, context: CallbackContext):
 
     query = update.callback_query
     user_id = query.from_user.id
 
-    # Get current step or set to 0 if not exists
-    current_step = user_game_step.get(user_id, 0)
+    # Load current step from the database
+    current_step = await get_bot_state(user_id)
     game = await sync_to_async(ElemetsGame.objects.filter(name=current_step).first)()
     true_aswer = game.true_rez
 
     await query.answer()
 
     if query.data == 'btn2' and game.name == '1':
-
         await query.message.reply_text(
             HELP_TEXT,
         )
-    elif query.data == 'btn'+str(true_aswer) :
+    elif query.data == 'btn' + str(true_aswer):
         await query.message.reply_text(
             game.itog_txt,
         )
-        user_game_step[user_id] = str(int(current_step) + 1)
+        new_state = str(int(current_step) + 1)
+        await update_bot_state(user_id, new_state)
         await game_step(update, context)
     elif query.data == 'btn_game_step':
-        user_game_step[user_id] = '2'
+        await update_bot_state(user_id, '2')
         await game_step(update, context)
     else:
         await query.message.reply_text(
@@ -96,14 +108,14 @@ async def frame(update: Update, context: CallbackContext, game):
             )
 
 
-
-
 async def start(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
-    user_game_step[user_id] = "1"
-    game = await sync_to_async(ElemetsGame.objects.first)()
-
+    # Set initial state for a new user/game
+    await update_bot_state(user_id, "1")
+    current_step = await get_bot_state(user_id)
+    game = await sync_to_async(ElemetsGame.objects.filter(name=current_step).first)()
     await frame(update, context, game)
+
 
 async def game_step(update: Update, context: CallbackContext):
     if update.callback_query:
@@ -111,11 +123,11 @@ async def game_step(update: Update, context: CallbackContext):
     else:
         user_id = update.message.from_user.id
 
-    current_step = user_game_step.get(user_id, 0)
+    current_step = await get_bot_state(user_id)
     game = await sync_to_async(ElemetsGame.objects.filter(name=current_step).first)()
     print(current_step)
     if game.true_rez == 100:
-        user_game_step[user_id] = '1'
+        await update_bot_state(user_id, '1')
     await frame(update, context, game)
 
 
@@ -126,12 +138,15 @@ async def help(update: Update, context: CallbackContext):
 
 async def new_game(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
-    user_game_step[user_id] = "1"
-    game = await sync_to_async(ElemetsGame.objects.first)()
+    await update_bot_state(user_id, "1")
+    current_step = await get_bot_state(user_id)
+    game = await sync_to_async(ElemetsGame.objects.filter(name=current_step).first)()
     await frame(update, context, game)
+
 
 async def echo(update: Update, context: CallbackContext):
     await update.message.reply_text(update.message.text)
+
 
 async def main():
     try:
